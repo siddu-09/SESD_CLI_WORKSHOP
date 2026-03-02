@@ -1,12 +1,153 @@
 #!/usr/bin/env node
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 const { Command } = require('commander');
 const axios = require("axios");
+const fs = require('fs');
 const program = new Command();
 program
     .command("greet <name>")
     .action((name) => {
     console.log(`Hello ${name}`);
 });
+// 1. File info
+program
+    .command("fileinfo <filename>")
+    .description("Show file size and stats")
+    .action((filename) => {
+    try {
+        const stats = fs.statSync(filename);
+        console.log(`File: ${filename}`);
+        console.log(`Size: ${stats.size} bytes`);
+        console.log(`Created: ${stats.birthtime}`);
+        console.log(`Modified: ${stats.mtime}`);
+    }
+    catch (err) {
+        console.error("File not found or error reading file.");
+    }
+});
+// 2. GitHub user info (API)
+program
+    .command("github <username>")
+    .description("Get GitHub user info")
+    .action((username) => __awaiter(this, void 0, void 0, function* () {
+    try {
+        const res = yield axios.get(`https://api.github.com/users/${username}`);
+        const user = res.data;
+        console.log(`GitHub User: ${user.login}`);
+        console.log(`Name: ${user.name}`);
+        console.log(`Public Repos: ${user.public_repos}`);
+        console.log(`Followers: ${user.followers}`);
+        console.log(`Following: ${user.following}`);
+        console.log(`Bio: ${user.bio}`);
+    }
+    catch (err) {
+        console.error("Error fetching GitHub user info.");
+    }
+}));
+// 3. Weather (API)
+program
+    .command("weather <city>")
+    .description("Get current weather for a city (Open-Meteo API)")
+    .action((city) => __awaiter(this, void 0, void 0, function* () {
+    try {
+        // Geocoding to get lat/lon
+        const geo = yield axios.get(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1`);
+        if (!geo.data.results || geo.data.results.length === 0) {
+            console.error("City not found.");
+            return;
+        }
+        const { latitude, longitude } = geo.data.results[0];
+        const weather = yield axios.get(`https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current_weather=true`);
+        const w = weather.data.current_weather;
+        console.log(`Weather in ${city}: ${w.temperature}°C, wind ${w.windspeed} km/h`);
+    }
+    catch (err) {
+        console.error("Error fetching weather.");
+    }
+}));
+// 4. Quote generator (API)
+program
+    .command("quote")
+    .description("Get a random inspirational quote")
+    .action(() => __awaiter(this, void 0, void 0, function* () {
+    try {
+        const res = yield axios.get("https://api.quotable.io/random");
+        const q = res.data;
+        console.log(`\"${q.content}\" — ${q.author}`);
+    }
+    catch (err) {
+        console.error("Error fetching quote.");
+    }
+}));
+// 5. Joke (API, improved output)
+program
+    .command("joke")
+    .description("Get a random joke")
+    .action(() => __awaiter(this, void 0, void 0, function* () {
+    try {
+        const res = yield axios.get(`https://official-joke-api.appspot.com/random_joke`);
+        const joke = res.data;
+        console.log(`${joke.setup}\n${joke.punchline}`);
+    }
+    catch (err) {
+        console.log("Error fetching joke.");
+    }
+}));
+// 6. Reverse string
+program
+    .command("reverse <text>")
+    .description("Reverse the given text")
+    .action((text) => {
+    console.log(text.split('').reverse().join(''));
+});
+// 7. Palindrome check
+program
+    .command("palindrome <text>")
+    .description("Check if text is a palindrome")
+    .action((text) => {
+    const clean = text.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    const isPal = clean === clean.split('').reverse().join('');
+    console.log(isPal ? "Yes, it's a palindrome!" : "No, not a palindrome.");
+});
+// 8. Word count
+program
+    .command("wordcount <sentence>")
+    .description("Count words in a sentence")
+    .action((sentence) => {
+    const count = sentence.trim().split(/\s+/).length;
+    console.log(`Word count: ${count}`);
+});
+// 9. Time now
+program
+    .command("now")
+    .description("Show current date and time")
+    .action(() => {
+    console.log(`Current date and time: ${new Date().toLocaleString()}`);
+});
+// 10. Countdown
+program
+    .command("countdown <seconds>")
+    .description("Countdown from N seconds")
+    .action((seconds) => __awaiter(this, void 0, void 0, function* () {
+    let n = parseInt(seconds);
+    if (isNaN(n) || n < 1) {
+        console.error("Please provide a positive integer.");
+        return;
+    }
+    for (let i = n; i > 0; i--) {
+        process.stdout.write(`\r${i}   `);
+        yield new Promise(res => setTimeout(res, 1000));
+    }
+    console.log("\nTime's up!");
+}));
 program
     .command("add <n1> <n2>")
     .action((n1, n2) => {
@@ -54,16 +195,5 @@ program
         process.exit(1);
     }
     console.log(`The quotient of ${num1} and ${num2} is ${num1 / num2}`);
-});
-program
-    .command("joke")
-    .action(async () => {
-    try {
-        const res = await axios.get(`https://official-joke-api.appspot.com/random_joke`);
-        console.log(res);
-    }
-    catch (err) {
-        console.log("Error", err);
-    }
 });
 program.parse();
